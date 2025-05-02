@@ -23,7 +23,7 @@ openai.api_key = OPENAI_API_KEY
 # NewsAPI endpoint
 NEWS_API_ENDPOINT = "https://newsapi.org/v2/top-headlines"
 
-# Default RSS feeds from multiple domains
+# Expanded list of RSS feeds from multiple popular domains
 DEFAULT_RSS_FEEDS = [
     "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml",
     "http://feeds.bbci.co.uk/news/technology/rss.xml",
@@ -51,8 +51,25 @@ DEFAULT_RSS_FEEDS = [
     "https://www.espn.com/nfl",
     "https://www.espn.com/espn/rss/nba/news",
     "https://www.espn.com/espn/rss/espnu/news",
+    # Popular general news feeds
+    "http://feeds.reuters.com/Reuters/topNews",
+    "http://feeds.reuters.com/Reuters/worldNews",
+    "http://feeds.foxnews.com/foxnews/latest",
+    "https://www.cnbc.com/id/100003114/device/rss/rss.html",
+    "https://www.engadget.com/rss.xml",
+    "http://feeds.arstechnica.com/arstechnica/index",
+    "https://www.techradar.com/rss",
+    "https://www.zdnet.com/news/rss.xml",
+    "https://www.politico.com/rss/politico.xml",
+    "https://www.theguardian.com/world/rss",
+    "https://apnews.com/apf-topnews?format=rss",
+    "https://www.usnews.com/rss/news",
+    "http://feeds.feedburner.com/Time/TopStories",
+    "https://www.bloomberg.com/feed/biz.xml",
+    "http://www.aljazeera.com/xml/rss/all.xml",
 ]
 
+# Function definitions remain unchanged
 
 def expand_topic(topic: str, max_terms: int = 5) -> list:
     """
@@ -63,8 +80,7 @@ def expand_topic(topic: str, max_terms: int = 5) -> list:
         f"Generate {max_terms} synonyms or related terms for the topic '{topic}'. "
         "Return them as a comma-separated list with no extra text."
     )
-    # Updated OpenAI API call
-    response = openai.ChatCompletion.create(
+    response = openai.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7,
@@ -76,9 +92,6 @@ def expand_topic(topic: str, max_terms: int = 5) -> list:
 
 
 def fetch_api_articles(query: str, page_size: int = 5) -> list:
-    """
-    Fetches articles from NewsAPI.org using a query string.
-    """
     params = {
         "apiKey": NEWS_API_KEY,
         "q": query,
@@ -94,9 +107,6 @@ def fetch_api_articles(query: str, page_size: int = 5) -> list:
 
 
 def fetch_rss_articles(feed_urls: list, filter_terms: list, max_items: int = 5) -> list:
-    """
-    Fetches and filters RSS feed entries by related terms.
-    """
     filtered = []
     for url in feed_urls:
         feed = feedparser.parse(url)
@@ -108,7 +118,6 @@ def fetch_rss_articles(feed_urls: list, filter_terms: list, max_items: int = 5) 
 
 
 def main():
-    # Prompt user for topic and counts
     topic = input("Enter a topic keyword: ").strip()
     if not topic:
         print("No topic provided. Exiting.", file=sys.stderr)
@@ -124,16 +133,12 @@ def main():
     except ValueError:
         rss_count = 5
 
-    # Expand topic for broader coverage
     related_terms = expand_topic(topic)
     terms = [topic] + related_terms
     print(f"\nSearching for articles with terms: {', '.join(terms)}\n")
 
-    # Build query string for NewsAPI
     query_str = " OR ".join(terms)
     api_articles = fetch_api_articles(query_str, page_size=api_count)
-
-    # Fetch and filter RSS feeds
     rss_articles = fetch_rss_articles(DEFAULT_RSS_FEEDS, terms, max_items=rss_count)
 
     articles = api_articles + rss_articles
@@ -141,7 +146,6 @@ def main():
         print(f"No articles found for '{topic}'.", file=sys.stderr)
         sys.exit(1)
 
-    # Display results
     print(f"\nFetched {len(articles)} articles for topic '{topic}':\n")
     for idx, art in enumerate(articles, 1):
         print(f"{idx}. [{art['source']}] {art['title']}")
