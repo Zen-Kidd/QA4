@@ -28,7 +28,7 @@ DEFAULT_RSS_FEEDS = [
     "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml",
     "http://feeds.bbci.co.uk/news/technology/rss.xml",
     "https://techcrunch.com/feed/",
-    "https://www.theverge.com/rss/index.xml"
+    "https://www.theverge.com/rss/index.xml",
     "http://www.espn.com/espn/rss/nfl/news",
     "https://www.espn.com/espn/rss/nfl/headlines",
     "https://www.billboard.com/feed",
@@ -64,7 +64,7 @@ def expand_topic(topic: str, max_terms: int = 5) -> list:
         "Return them as a comma-separated list with no extra text."
     )
     # Updated OpenAI API call
-    response = openai.chat.completions.create(
+    response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7,
