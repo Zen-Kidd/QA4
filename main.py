@@ -23,62 +23,42 @@ openai.api_key = OPENAI_API_KEY
 # NewsAPI endpoint
 NEWS_API_ENDPOINT = "https://newsapi.org/v2/top-headlines"
 
-# Expanded list of RSS feeds from multiple popular domains
+# Verified, active RSS feeds (broad coverage)
 DEFAULT_RSS_FEEDS = [
-    "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml",
-    "http://feeds.bbci.co.uk/news/technology/rss.xml",
-    "https://techcrunch.com/feed/",
-    "https://www.theverge.com/rss/index.xml",
-    "http://www.espn.com/espn/rss/nfl/news",
-    "https://www.espn.com/espn/rss/nfl/headlines",
-    "https://www.billboard.com/feed",
+    # General News
     "http://rss.cnn.com/rss/cnn_topstories.rss",
-    "http://feeds.nytimes.com/nyt/rss/HomePage",
-    "http://www.washingtonpost.com/rss/",
-    "http://rssfeeds.usatoday.com/usatoday-NewsTopStories",
+    "https://feeds.bbci.co.uk/news/world/rss.xml",
+    "http://feeds.reuters.com/reuters/topNews",
     "http://www.npr.org/rss/rss.php?id=1001",
-    "http://newsrss.bbc.co.uk/rss/newsonline_world_edition/americas/rss.xml",
-    "http://www.npr.org/rss/rss.php?id=1013",
-    "http://www.smartbrief.com/servlet/rss?b=ASCD",
-    "http://feeds.nature.com/nature/rss/current",
+    # Sports
+    "https://www.espn.com/espn/rss/news",
+    "https://feeds.bbci.co.uk/sport/rss.xml",
+    # Technology
+    "https://www.wired.com/feed/rss",
+    "https://techcrunch.com/feed/",
+    "https://www.cnet.com/rss/news/",
+    # Science
     "http://feeds.sciencedaily.com/sciencedaily",
-    "http://feeds.wired.com/wired/index",
-    "http://www.npr.org/rss/rss.php?id=1019",
-    "http://feeds.pcworld.com/pcworld/latestnews",
-    "http://feeds1.nytimes.com/nyt/rss/Sports",
-    "http://www.nba.com/jazz/rss.xml",
-    "http://www.espn.in/football",
-    "https://www.espn.com/nfl",
-    "https://www.espn.com/espn/rss/nba/news",
-    "https://www.espn.com/espn/rss/espnu/news",
-    # Popular general news feeds
-    "http://feeds.reuters.com/Reuters/topNews",
-    "http://feeds.reuters.com/Reuters/worldNews",
-    "http://feeds.foxnews.com/foxnews/latest",
-    "https://www.cnbc.com/id/100003114/device/rss/rss.html",
-    "https://www.engadget.com/rss.xml",
-    "http://feeds.arstechnica.com/arstechnica/index",
-    "https://www.techradar.com/rss",
-    "https://www.zdnet.com/news/rss.xml",
-    "https://www.politico.com/rss/politico.xml",
-    "https://www.theguardian.com/world/rss",
-    "https://apnews.com/apf-topnews?format=rss",
-    "https://www.usnews.com/rss/news",
-    "http://feeds.feedburner.com/Time/TopStories",
-    "https://www.bloomberg.com/feed/biz.xml",
-    "http://www.aljazeera.com/xml/rss/all.xml",
+    "https://www.nasa.gov/news-release/feed/",
+    # Business
+    "http://feeds.reuters.com/reuters/businessNews",
+    "https://www.cnbc.com/id/10001147/device/rss/rss.html",
+    # Entertainment & Culture
+    "https://variety.com/feed/",
+    "https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml",
+    # Health & Medicine
+    "https://www.medicinenet.com/rss/dailyhealth.xml",
+    "https://feeds.bbci.co.uk/news/health/rss.xml",
 ]
 
-# Function definitions remain unchanged
 
 def expand_topic(topic: str, max_terms: int = 5) -> list:
     """
-    Uses OpenAI to generate related keywords for broader search.
-    Returns a list of related terms.
+    Uses OpenAI to generate related keywords for broader NewsAPI queries.
+    Returns a list of related terms including the original topic.
     """
     prompt = (
-        f"Generate {max_terms} synonyms or related terms for the topic '{topic}'. "
-        "Return them as a comma-separated list with no extra text."
+        f"Generate {max_terms} synonyms or related terms for the topic '{topic}', in plain comma-separated format."
     )
     response = openai.chat.completions.create(
         model="gpt-3.5-turbo",
@@ -86,18 +66,37 @@ def expand_topic(topic: str, max_terms: int = 5) -> list:
         temperature=0.7,
         max_tokens=60
     )
-    text = response.choices[0].message.content
-    terms = [t.strip() for t in text.split(',') if t.strip()]
-    return terms
+    terms = [t.strip() for t in response.choices[0].message.content.split(",") if t.strip()]
+    return [topic] + terms
+
+
+def is_relevant(text: str, topic: str) -> bool:
+    """
+    Uses the LLM to semantically check if the text is directly about the topic.
+    Returns True if the model answers 'yes'.
+    """
+    prompt = (
+        f"Is the following article text directly about '{topic}'? "
+        "Answer yes or no, without explanation.\n\n" + text
+    )
+    try:
+        resp = openai.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.0,
+            max_tokens=5
+        )
+        return resp.choices[0].message.content.strip().lower().startswith("yes")
+    except Exception:
+        return False
 
 
 def fetch_api_articles(query: str, page_size: int = 5) -> list:
-    params = {
-        "apiKey": NEWS_API_KEY,
-        "q": query,
-        "pageSize": page_size,
-        "language": "en"
-    }
+    """
+    Fetches relevant articles from NewsAPI.org using a query string.
+    Returns a list of dicts with 'title', 'link', and 'source'.
+    """
+    params = {"apiKey": NEWS_API_KEY, "q": query, "pageSize": page_size, "language": "en"}
     resp = requests.get(NEWS_API_ENDPOINT, params=params)
     resp.raise_for_status()
     return [
@@ -106,15 +105,45 @@ def fetch_api_articles(query: str, page_size: int = 5) -> list:
     ]
 
 
-def fetch_rss_articles(feed_urls: list, filter_terms: list, max_items: int = 5) -> list:
-    filtered = []
+def fetch_rss_articles(feed_urls: list, topic: str, max_items: int = 5) -> list:
+    """
+    Fetches top entries from RSS feeds, filtering by direct relevance via substring or LLM.
+    """
+    results = []
     for url in feed_urls:
-        feed = feedparser.parse(url)
-        for entry in feed.entries[:max_items]:
-            text_content = f"{entry.title} {getattr(entry, 'summary', '')}".lower()
-            if any(term.lower() in text_content for term in filter_terms):
-                filtered.append({"title": entry.title, "link": entry.link, "source": url})
-    return filtered
+        count = 0
+        try:
+            resp = requests.get(url, timeout=10)
+            resp.raise_for_status()
+            feed = feedparser.parse(resp.content)
+        except Exception as e:
+            print(f"Warning: could not retrieve feed {url}: {e}", file=sys.stderr)
+            continue
+
+        for entry in feed.entries:
+            if count >= max_items:
+                break
+
+            # Combine text fields
+            text_content = " ".join([
+                entry.get('title', ''),
+                entry.get('summary', ''),
+                entry.get('description', ''),
+                *[c.get('value', '') for c in entry.get('content', [])]
+            ])
+
+            # Check substring first
+            if topic.lower() in text_content.lower():
+                results.append({"title": entry.get('title', ''), "link": entry.get('link', ''), "source": url})
+                count += 1
+                continue
+
+            # Semantic relevance fallback
+            if is_relevant(text_content, topic):
+                results.append({"title": entry.get('title', ''), "link": entry.get('link', ''), "source": url})
+                count += 1
+
+    return results
 
 
 def main():
@@ -133,14 +162,17 @@ def main():
     except ValueError:
         rss_count = 5
 
-    related_terms = expand_topic(topic)
-    terms = [topic] + related_terms
-    print(f"\nSearching for articles with terms: {', '.join(terms)}\n")
-
+    # Expand topic for NewsAPI queries
+    terms = expand_topic(topic)
+    print(f"\nSearching NewsAPI for: {', '.join(terms)}")
     query_str = " OR ".join(terms)
     api_articles = fetch_api_articles(query_str, page_size=api_count)
-    rss_articles = fetch_rss_articles(DEFAULT_RSS_FEEDS, terms, max_items=rss_count)
 
+    # Fetch and filter RSS articles by direct topic relevance
+    print(f"\nFiltering RSS feeds for topic: {topic}\n")
+    rss_articles = fetch_rss_articles(DEFAULT_RSS_FEEDS, topic, max_items=rss_count)
+
+    # Combine and display
     articles = api_articles + rss_articles
     if not articles:
         print(f"No articles found for '{topic}'.", file=sys.stderr)
