@@ -25,9 +25,15 @@ EMAIL_ADDRESS   = os.getenv("EMAIL_ADDRESS")
 EMAIL_PASSWORD  = os.getenv("EMAIL_PASSWORD")
 RECIPIENT_EMAIL = os.getenv("RECIPIENT_EMAIL")
 
-for var,name in [(NEWS_API_KEY,"NEWS_API_KEY"),(OPENAI_API_KEY,"OPENAI_API_KEY"),
-                 (SMTP_HOST,"SMTP_HOST"),(EMAIL_ADDRESS,"EMAIL_ADDRESS"),
-                 (EMAIL_PASSWORD,"EMAIL_PASSWORD"),(RECIPIENT_EMAIL,"RECIPIENT_EMAIL")]:
+# Validate presence
+for var, name in [
+    (NEWS_API_KEY, "NEWS_API_KEY"),
+    (OPENAI_API_KEY, "OPENAI_API_KEY"),
+    (SMTP_HOST, "SMTP_HOST"),
+    (EMAIL_ADDRESS, "EMAIL_ADDRESS"),
+    (EMAIL_PASSWORD, "EMAIL_PASSWORD"),
+    (RECIPIENT_EMAIL, "RECIPIENT_EMAIL"),
+]:
     if not var:
         raise EnvironmentError(f"Please set {name} in your .env file")
 
@@ -52,11 +58,11 @@ def fetch_newsapi(topic: str, max_items: int = DEFAULT_COUNT) -> list:
     out = []
     for art in r.json().get("articles", []):
         out.append({
-            "title": art.get("title"),
-            "link":  art.get("url"),
-            "source": art.get("source", {}).get("name","NewsAPI"),
+            "title":       art.get("title"),
+            "link":        art.get("url"),
+            "source":      art.get("source", {}).get("name","NewsAPI"),
             "publishedAt": art.get("publishedAt",""),
-            "summary": art.get("description","")
+            "summary":     art.get("description","")
         })
     return out
 
@@ -75,18 +81,18 @@ async def fetch_google_rss(topic: str, max_items: int = DEFAULT_COUNT) -> list:
         else:
             pub = ""
         out.append({
-            "title": entry.get("title",""),
-            "link":  entry.get("link",""),
-            "source":"Google News RSS",
+            "title":       entry.get("title",""),
+            "link":        entry.get("link",""),
+            "source":      "Google News RSS",
             "publishedAt": pub,
-            "summary": entry.get("summary","")
+            "summary":     entry.get("summary","")
         })
     return out
 
 def summarize_if_relevant(topic: str, article: dict) -> str | None:
     """
     Use OpenAI to check relevance and summarize.
-    Returns None if not relevant, otherwise a concise 2–3 sentence summary.
+    Returns None if not relevant, otherwise a concise 2-3 sentence summary.
     """
     prompt = f"""Topic: {topic}
 Title: {article['title']}
@@ -117,49 +123,58 @@ def sort_by_date(articles: list) -> list:
     return sorted(articles, key=to_dt, reverse=True)
 
 def send_email(topic: str, articles: list[dict], summaries: dict[str,str]):
-    """Send a polished HTML email with big heading and links at bottom."""
-    # Build HTML list of summaries
+    """Send a polished HTML + plain-text email with spacing."""
+    # HTML summary items
     summary_items = []
     for art in articles:
         t = art["title"]
         if t in summaries:
-            summary_items.append(f"<li><strong>{t}</strong><br>{summaries[t]}</li>")
-
-    # Build HTML list of links
-    link_items = [f"<li><a href='{art['link']}' target='_blank'>{art['title']}</a></li>"
-                  for art in articles]
-
+            summary_items.append(
+                f"<li style='margin-bottom:12px;'>"
+                f"<strong>{t}</strong><br>{summaries[t]}"
+                "</li>"
+            )
+    # HTML link items
+    link_items = []
+    for art in articles:
+        link_items.append(
+            f"<li style='margin-bottom:8px;'><a href='{art['link']}' target='_blank'>{art['title']}</a></li>"
+        )
     html = f"""\
 <html>
-  <body style="font-family:Arial,sans-serif;">
-    <h1 style="font-size:26px;margin-bottom:0">📰 News Digest: {topic}</h1>
-    <p style="margin-top:4px;">Top {len(summaries)} summaries</p>
-    <ul>
+  <body style="font-family:Arial,sans-serif; line-height:1.4;">
+    <h1 style="font-size:28px; margin-bottom:8px;">📰 News Digest: {topic}</h1>
+    <p>Top {len(summaries)} summaries</p>
+    <ul style="padding-left:16px;">
       {''.join(summary_items)}
     </ul>
-    <h2 style="font-size:20px;">🔗 Links</h2>
-    <ul>
+    <h2 style="font-size:20px; margin-top:24px; margin-bottom:8px;">🔗 Links</h2>
+    <ul style="padding-left:16px;">
       {''.join(link_items)}
     </ul>
   </body>
 </html>
 """
-
-    # Plain-text fallback
-    text = [f"News Digest: {topic}\n"]
+    # Plain-text fallback with extra blank lines
+    text_lines = [f"News Digest: {topic}", "", f"Top {len(summaries)} summaries:", ""]
     for art in articles:
         t = art["title"]
         if t in summaries:
-            text.append(f"- {t}: {summaries[t]}")
-    text.append("\nLinks:")
+            text_lines.append(t)
+            text_lines.append(summaries[t])
+            text_lines.append("")  # extra blank line
+    text_lines.append("Links:")
+    text_lines.append("")
     for art in articles:
-        text.append(f"- {art['title']}: {art['link']}")
+        text_lines.append(art["title"])
+        text_lines.append(art["link"])
+        text_lines.append("")  # extra blank line
 
     msg = EmailMessage()
-    msg["From"] = EMAIL_ADDRESS
-    msg["To"] = RECIPIENT_EMAIL
+    msg["From"]    = EMAIL_ADDRESS
+    msg["To"]      = RECIPIENT_EMAIL
     msg["Subject"] = f"News Digest: {topic} ({len(summaries)} summaries)"
-    msg.set_content("\n".join(text))
+    msg.set_content("\n".join(text_lines))
     msg.add_alternative(html, subtype="html")
 
     with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as smtp:
