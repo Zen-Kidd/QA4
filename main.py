@@ -9,18 +9,29 @@ from dotenv import load_dotenv
 import requests
 import feedparser
 import openai
+import smtplib
+from email.message import EmailMessage
 
 # Load environment variables from .env
 env_path = Path(__file__).parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
 # API keys
-NEWS_API_KEY = os.getenv("NEWS_API_KEY")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not NEWS_API_KEY:
-    raise EnvironmentError("Please set NEWS_API_KEY in your .env file")
-if not OPENAI_API_KEY:
-    raise EnvironmentError("Please set OPENAI_API_KEY in your .env file")
+NEWS_API_KEY        = os.getenv("NEWS_API_KEY")
+OPENAI_API_KEY      = os.getenv("OPENAI_API_KEY")
+SMTP_HOST           = os.getenv("SMTP_HOST")
+SMTP_PORT           = int(os.getenv("SMTP_PORT", "587"))
+EMAIL_ADDRESS       = os.getenv("EMAIL_ADDRESS")
+EMAIL_PASSWORD      = os.getenv("EMAIL_PASSWORD")
+RECIPIENT_EMAIL     = os.getenv("RECIPIENT_EMAIL")
+
+# Validate
+for var, name in [(NEWS_API_KEY, "NEWS_API_KEY"), (OPENAI_API_KEY, "OPENAI_API_KEY"),
+                  (SMTP_HOST, "SMTP_HOST"), (EMAIL_ADDRESS, "EMAIL_ADDRESS"),
+                  (EMAIL_PASSWORD, "EMAIL_PASSWORD"), (RECIPIENT_EMAIL, "RECIPIENT_EMAIL")]:
+    if not var:
+        raise EnvironmentError(f"Please set {name} in your .env file")
+
 openai.api_key = OPENAI_API_KEY
 
 # Endpoints & defaults
@@ -74,7 +85,10 @@ async def fetch_google_rss(topic: str, max_items: int = DEFAULT_COUNT) -> list:
     return out
 
 def summarize_if_relevant(topic: str, article: dict) -> str | None:
-    """Use OpenAI to summarize only if article is relevant."""
+    """
+    Use OpenAI to check relevance and summarize.
+    Returns None if not relevant, otherwise a concise 2-3 sentence summary.
+    """
     prompt = f"""Topic: {topic}
 Title: {article['title']}
 Summary: {article.get('summary','')}
@@ -95,39 +109,69 @@ If not relevant, respond with 'NOT RELEVANT'."""
 def sort_by_date(articles: list) -> list:
     """Sort articles by their publishedAt timestamp (newest first)."""
     def parse_date(a):
-        s = a.get("publishedAt", "")
+        s = a.get("publishedAt","")
         try:
-            dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+            dt = datetime.fromisoformat(s.replace("Z","+00:00"))
             return dt.astimezone(timezone.utc).replace(tzinfo=None)
         except:
             return datetime.min
     return sorted(articles, key=parse_date, reverse=True)
+
+def send_email(topic: str, articles: list[dict], summaries: dict[str,str]):
+    """Send the summaries via SMTP in a clean email."""
+    msg = EmailMessage()
+    msg["From"]    = EMAIL_ADDRESS
+    msg["To"]      = RECIPIENT_EMAIL
+    msg["Subject"] = f"News Digest: {topic} ({len(summaries)} summaries)"
+
+    lines = [f"Here are your top {len(summaries)} \"{topic}\" article summaries:\n"]
+    for art in articles:
+        title = art["title"]
+        if title not in summaries:
+            continue
+        link = art["link"]
+        summary = summaries[title]
+        lines.append(f"• {title}")
+        lines.append(f"  Link: {link}")
+        lines.append(f"  Summary: {summary}\n")
+
+    msg.set_content("\n".join(lines))
+
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as smtp:
+        smtp.starttls()
+        smtp.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
+        smtp.send_message(msg)
 
 def main():
     topic = input("Enter a topic keyword: ").strip()
     if not topic:
         sys.exit("No topic provided.")
 
-    # Fetch
     api_articles = fetch_newsapi(topic)
     rss_articles = asyncio.run(fetch_google_rss(topic))
-    combined = sort_by_date(api_articles + rss_articles)
+    all_articles = sort_by_date(api_articles + rss_articles)
 
-    # Print articles
-    print(f"Fetched {len(combined)} articles for topic '{topic}':\n")
-    for i, art in enumerate(combined, 1):
+    print(f"Fetched {len(all_articles)} articles for topic '{topic}':\n")
+    for i, art in enumerate(all_articles, 1):
         print(f"{i}. [{art['source']}] {art['title']}")
         print(f"   Link: {art['link']}")
         if art.get("publishedAt"):
             print(f"   Published: {art['publishedAt']}")
         print()
 
-    # Print summaries
     print("Summaries of relevant articles:\n")
-    for art in combined:
+    summaries = {}
+    for art in all_articles:
         summary = summarize_if_relevant(topic, art)
         if summary:
+            summaries[art["title"]] = summary
             print(f"- {art['title']}: {summary}\n")
+
+    if summaries:
+        send_email(topic, all_articles, summaries)
+        print("📧 Email sent with your summaries!")
+    else:
+        print("No relevant summaries found; no email sent.")
 
 if __name__ == "__main__":
     main()
