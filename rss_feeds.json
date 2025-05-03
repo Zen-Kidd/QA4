@@ -1,0 +1,167 @@
+[
+    {
+      "url": "https://www.espn.com/espn/rss/news",
+      "tags": ["sports"]
+    },
+    {
+      "url": "https://feeds.bbci.co.uk/sport/rss.xml",
+      "tags": ["sports"]
+    },
+    {
+      "url": "https://www.si.com/rss/si_topstories.rss",
+      "tags": ["sports"]
+    },
+    {
+      "url": "https://www.pcgamer.com/rss",
+      "tags": ["gaming"]
+    },
+    {
+      "url": "https://www.polygon.com/rss/index.xml",
+      "tags": ["gaming", "entertainment"]
+    },
+    {
+      "url": "https://feeds.ign.com/ign/all",
+      "tags": ["gaming"]
+    },
+    {
+      "url": "https://www.eater.com/rss/index.xml",
+      "tags": ["food"]
+    },
+    {
+      "url": "https://www.theguardian.com/food/rss",
+      "tags": ["food"]
+    },
+    {
+      "url": "https://www.bonappetit.com/feed/rss",
+      "tags": ["food"]
+    },
+    {
+      "url": "https://rss.politico.com/politics-news.xml",
+      "tags": ["politics"]
+    },
+    {
+      "url": "https://feeds.bbci.co.uk/news/politics/rss.xml",
+      "tags": ["politics"]
+    },
+    {
+      "url": "https://rss.nytimes.com/services/xml/rss/nyt/Politics.xml",
+      "tags": ["politics"]
+    },
+    {
+      "url": "https://news.artnet.com/feed",
+      "tags": ["art"]
+    },
+    {
+      "url": "https://www.theartnewspaper.com/rss.xml",
+      "tags": ["art"]
+    },
+    {
+      "url": "https://www.artnews.com/c/feeds/",
+      "tags": ["art"]
+    },
+    {
+      "url": "https://www.sciencedaily.com/rss/all.xml",
+      "tags": ["science"]
+    },
+    {
+      "url": "https://phys.org/rss-feed/",
+      "tags": ["science", "technology"]
+    },
+    {
+      "url": "https://www.nasa.gov/rss/dyn/breaking_news.rss",
+      "tags": ["science"]
+    },
+    {
+      "url": "https://www.wired.com/feed/rss",
+      "tags": ["technology"]
+    },
+    {
+      "url": "https://techcrunch.com/feed/",
+      "tags": ["technology"]
+    },
+    {
+      "url": "https://www.theverge.com/rss/index.xml",
+      "tags": ["technology", "entertainment"]
+    },
+    {
+      "url": "https://www.engadget.com/rss.xml",
+      "tags": ["technology"]
+    },
+    {
+      "url": "https://makezine.com/feed/",
+      "tags": ["hobbies"]
+    },
+    {
+      "url": "https://petapixel.com/feed",
+      "tags": ["hobbies"]
+    },
+    {
+      "url": "https://www.instructables.com/feed/all.rss",
+      "tags": ["hobbies"]
+    },
+    {
+      "url": "https://www.archdaily.com/rss",
+      "tags": ["architecture"]
+    },
+    {
+      "url": "https://www.dezeen.com/feed",
+      "tags": ["architecture"]
+    },
+    {
+      "url": "https://www.architecturaldigest.com/feed/rss",
+      "tags": ["architecture"]
+    },
+    {
+      "url": "https://fortune.com/feed",
+      "tags": ["business"]
+    },
+    {
+      "url": "https://feeds.bbci.co.uk/news/business/rss.xml",
+      "tags": ["business"]
+    },
+    {
+      "url": "https://www.economist.com/business/rss.xml",
+      "tags": ["business"]
+    },
+    {
+      "url": "https://variety.com/feed",
+      "tags": ["entertainment"]
+    },
+    {
+      "url": "https://www.rollingstone.com/feed/",
+      "tags": ["entertainment"]
+    },
+    {
+      "url": "https://www.hollywoodreporter.com/t/rss/",
+      "tags": ["entertainment"]
+    },
+    {
+      "url": "https://feeds.npr.org/1128/rss.xml",
+      "tags": ["health"]
+    },
+    {
+      "url": "https://kffhealthnews.org/feed/",
+      "tags": ["health"]
+    },
+    {
+      "url": "https://www.medicalnewstoday.com/rss",
+      "tags": ["health"]
+    },
+    {
+      "url": "https://www.who.int/feeds/entity/mediacentre/news/en/rss.xml",
+      "tags": ["health"]
+    },
+    {
+      "url": "https://www.theguardian.com/environment/rss",
+      "tags": ["environment"]
+    },
+    {
+      "url": "https://insideclimatenews.org/feed",
+      "tags": ["environment"]
+    },
+    {
+      "url": "https://www.nationalgeographic.com/environment/environment.rss",
+      "tags": ["environment"]
+    }
+  ]
+  

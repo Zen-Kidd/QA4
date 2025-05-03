@@ -2,6 +2,7 @@
 import os
 import sys
 import asyncio
+import json
 from pathlib import Path
 from datetime import datetime, timezone
 from dotenv import load_dotenv
@@ -23,32 +24,8 @@ NEWSAPI_SOURCES = [
     "ars-technica", "reuters", "associated-press", "the-washington-post"
 ]
 
-# Expanded list of reliable RSS feeds
-RSS_FEEDS = [
-    # General News
-    "http://rss.cnn.com/rss/cnn_topstories.rss",
-    "https://feeds.bbci.co.uk/news/world/rss.xml",
-    "https://www.reutersagency.com/feed/?taxonomy=best-sectors&post_type=best",
-    "https://www.npr.org/rss/rss.php?id=1001",
-    "https://feeds.a.dj.com/rss/RSSWorldNews.xml",
-    # Technology
-    "https://www.wired.com/feed/rss",
-    "https://techcrunch.com/feed/",
-    "https://feeds.arstechnica.com/arstechnica/index",
-    "https://www.theverge.com/rss/index.xml",
-    # Business & Finance
-    "https://www.bloomberg.com/feed/podcast/etf-report.xml",
-    "https://feeds.marketwatch.com/marketwatch/topstories/",
-    # Politics
-    "https://www.politico.com/rss/politics08.xml",
-    "https://feeds.npr.org/1014/rss.xml",
-    # Science & Health
-    "http://feeds.nature.com/nature/rss/current",
-    "https://www.sciencedaily.com/rss/all.xml",
-    # Entertainment
-    "https://variety.com/feed/",
-    "https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml",
-]
+# Path to external RSS feed definitions
+FEEDS_FILE = Path(__file__).parent / "rss_feeds.json"
 
 async def fetch_feed(session: aiohttp.ClientSession, url: str):
     try:
@@ -72,27 +49,36 @@ async def fetch_all_feeds(urls):
                 results.append((url, feed))
     return results
 
-async def filter_rss_entries(feed_url, feed, topic, max_items):
-    matched = []
-    t = topic.lower()
-    for entry in feed.entries:
-        if len(matched) >= max_items:
-            break
-        text = " ".join([entry.get('title',''), entry.get('summary','')]).lower()
-        if t in text:
-            matched.append({
-                "title": entry.get('title',''),
-                "link": entry.get('link',''),
-                "source": feed_url,
-                "publishedAt": entry.get('published','')
-            })
-    return matched
-
 async def fetch_rss(topic: str, max_items: int):
-    feeds = await fetch_all_feeds(RSS_FEEDS)
+    # Load feed definitions with tags
+    try:
+        feeds_data = json.loads(FEEDS_FILE.read_text())
+    except Exception as e:
+        print(f"Error loading feeds file: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Select feeds tagged for this topic or fall back to all
+    topic_lower = topic.lower()
+    selected_urls = [f['url'] for f in feeds_data if topic_lower in [t.lower() for t in f.get('tags', [])]]
+    if not selected_urls:
+        selected_urls = [f['url'] for f in feeds_data]
+
+    feeds = await fetch_all_feeds(selected_urls)
     results = []
     for url, feed in feeds:
-        results.extend(await filter_rss_entries(url, feed, topic, max_items))
+        count = 0
+        for entry in feed.entries:
+            if count >= max_items:
+                break
+            text = " ".join([entry.get('title',''), entry.get('summary','')]).lower()
+            if topic_lower in text:
+                results.append({
+                    "title": entry.get('title',''),
+                    "link": entry.get('link',''),
+                    "source": url,
+                    "publishedAt": entry.get('published','')
+                })
+                count += 1
     return results
 
 def fetch_newsapi(topic: str, max_items: int):
@@ -105,9 +91,8 @@ def fetch_newsapi(topic: str, max_items: int):
     }
     resp = requests.get("https://newsapi.org/v2/everything", params=params)
     resp.raise_for_status()
-    items = resp.json().get("articles", [])
     results = []
-    for art in items:
+    for art in resp.json().get("articles", []):
         results.append({
             "title": art.get("title"),
             "link": art.get("url"),
